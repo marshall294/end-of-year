@@ -553,57 +553,81 @@
             });
         }
 
-        // Load fixtures
-        function loadFixtures() {
-            db.collection("fixtures").get().then((snapshot) => {
-                const fixtureList = document.getElementById("fixtures-list");
-                fixtureList.innerHTML = "";
+ // Load fixtures and display them with team logos and match stats
+function loadFixtures() {
+    db.collection("fixtures").get().then((snapshot) => {
+        const fixtureList = document.getElementById("fixtures-list");
+        fixtureList.innerHTML = "";  // Clear previous fixtures
 
-                snapshot.forEach(doc => {
-                    const fixture = doc.data();
-                    const firstTeamId = fixture.firstTeamId;
-                    const secondTeamId = fixture.secondTeamId;
+        snapshot.forEach(doc => {
+            const fixture = doc.data();
+            const firstTeamId = fixture.firstTeamId;
+            const secondTeamId = fixture.secondTeamId;
 
-                    const firstTeamNamePromise = db.collection("teams").doc(firstTeamId).get();
-                    const secondTeamNamePromise = db.collection("teams").doc(secondTeamId).get();
+            // Fetch team names and logos based on team IDs
+            const firstTeamNamePromise = db.collection("teams").doc(firstTeamId).get();
+            const secondTeamNamePromise = db.collection("teams").doc(secondTeamId).get();
 
-                    Promise.all([firstTeamNamePromise, secondTeamNamePromise]).then(([firstTeamDoc, secondTeamDoc]) => {
-                        const firstTeamName = firstTeamDoc.data().name;
-                        const secondTeamName = secondTeamDoc.data().name;
-                        const firstTeamLogo = firstTeamDoc.data().logo;
-                        const secondTeamLogo = secondTeamDoc.data().logo;
+            // Wait for both promises to resolve
+            Promise.all([firstTeamNamePromise, secondTeamNamePromise]).then(([firstTeamDoc, secondTeamDoc]) => {
+                const firstTeamName = firstTeamDoc.data().name;
+                const secondTeamName = secondTeamDoc.data().name;
+                const firstTeamLogo = firstTeamDoc.data().logo; // Ensure we are using the correct logo field
+                const secondTeamLogo = secondTeamDoc.data().logo;
 
-                        const stats = fixture.stats;
-                        const matchDate = new Date(fixture.date);
-                        const matchDateFormatted = matchDate.toLocaleDateString();
+                const stats = fixture.stats; // Access match statistics
+                const matchDate = new Date(fixture.date); // Convert the date to a Date object for better formatting
+                const matchTime = matchDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); // Format time
+                const matchDateFormatted = matchDate.toLocaleDateString(); // Format date
 
-                        const fixtureDiv = document.createElement("div");
-                        fixtureDiv.classList.add("fixture-item");
-                        fixtureDiv.innerHTML = `
-                            <div class="fixture-header">
-                                <h4 class="event-name">${fixture.event}</h4>
+                // Render the fixture with team names, logos, date, time, and stats
+                const fixtureDiv = document.createElement("div");
+                fixtureDiv.classList.add("fixture-item");
+                fixtureDiv.innerHTML = `
+                    <div class="fixture-header">
+                        <h4 class="event-name">${fixture.event}</h4>
+                    </div>
+                    <div class="fixture-body">
+                        <div class="teams">
+                            <div class="team">
+                                <img src="${firstTeamLogo}" alt="${firstTeamName} logo" class="team-logo">
+                                <p>${firstTeamName}</p>
+                                <p class="score home-score">${stats.homeScore}</p>
                             </div>
-                            <div class="teams">
-                                <div class="team">
-                                    <img src="${firstTeamLogo}" alt="${firstTeamName} logo" class="team-logo">
-                                    <p>${firstTeamName}</p>
-                                    <p class="score home-score">${stats.homeScore}</p>
-                                </div>
-                                <div class="vs">VS</div>
-                                <div class="team">
-                                    <img src="${secondTeamLogo}" alt="${secondTeamName} logo" class="team-logo">
-                                    <p>${secondTeamName}</p>
-                                    <p class="score away-score">${stats.awayScore}</p>
-                                </div>
+                            <div class="vs">VS</div>
+                            <div class="team">
+                                <img src="${secondTeamLogo}" alt="${secondTeamName} logo" class="team-logo">
+                                <p>${secondTeamName}</p>
+                                <p class="score away-score">${stats.awayScore}</p>
                             </div>
+                        </div>
+
+                        <!-- Separate Date and Time -->
+                        <div class="match-datetime">
                             <p class="match-date"><strong>Date:</strong> ${matchDateFormatted}</p>
-                        `;
+                            <p class="match-time"><strong>Time:</strong> ${matchTime}</p>
+                        </div>
 
-                        fixtureList.appendChild(fixtureDiv);
-                    });
-                });
+                        <div class="match-stats">
+                            <p><strong>Ball Possession:</strong> ${stats.ballPossession}</p>
+                            <p><strong>Yellow Cards:</strong> ${stats.yellowCards}</p>
+                            <p><strong>Red Cards:</strong> ${stats.redCards}</p>
+                            <p><strong>Status:</strong> ${stats.status}</p>
+                        </div>
+
+                        <div class="match-actions">
+                            <button class="fixture-button edit-stats-btn" onclick="editStats('${doc.id}')">Edit Stats</button>
+                            <button class="fixture-button delete-btn" onclick="deleteFixture('${doc.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+                fixtureList.appendChild(fixtureDiv);
+            }).catch(error => {
+                console.error("Error fetching team data:", error);
             });
-        }
+        });
+    });
+}
 
         // Load data when the page loads
         window.onload = function () {
