@@ -503,114 +503,287 @@
         <h2>Results and Statistics</h2>
         <div id="fixtures-list"></div>
     </section>
-
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK v8 CDN for non-modular use -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-    <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDr1XsWltrYOMXT7_MqylD8bOTGjikmYzE",
-            authDomain: "riders-5ad93.firebaseapp.com",
-            projectId: "riders-5ad93",
-            storageBucket: "riders-5ad93.appspot.com",
-            messagingSenderId: "956987352089",
-            appId: "1:956987352089:web:bee471f0cb74626bbb7688"
+<script>
+    // Firebase configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyDr1XsWltrYOMXT7_MqylD8bOTGjikmYzE",
+        authDomain: "riders-5ad93.firebaseapp.com",
+        projectId: "riders-5ad93",
+        storageBucket: "riders-5ad93.appspot.com",
+        messagingSenderId: "956987352089",
+        appId: "1:956987352089:web:bee471f0cb74626bbb7688"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Create a Team
+    document.getElementById("team-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const teamName = document.getElementById("team-name").value;
+        const coachName = document.getElementById("coach-name").value;
+        const playerNames = document.getElementById("player-names").value.split(",");
+        const logoURL = document.getElementById("team-logo").value;
+
+        // Save team data to Firestore
+        const team = {
+            name: teamName,
+            coach: coachName,
+            players: playerNames,
+            logo: logoURL, // Save logo URL in Firestore
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-
-        // Load teams
-        function loadTeams() {
-            db.collection("teams").get().then((snapshot) => {
-                const teamList = document.getElementById("teams-list");
-                teamList.innerHTML = ""; 
-
-                snapshot.forEach(doc => {
-                    const team = doc.data();
-                    const teamCard = document.createElement("div");
-                    teamCard.classList.add("team-card");
-
-                    teamCard.innerHTML = `
-                        <div class="card-header">
-                            <img src="${team.logo}" class="team-logo" alt="${team.name} Logo">
-                            <h3>${team.name}</h3>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>Coach:</strong> ${team.coach}</p>
-                            <p><strong>Players:</strong></p>
-                            <ul class="player-list">
-                                ${team.players.map(player => `<li>${player}</li>`).join('')}
-                            </ul>
-                        </div>
-                    `;
-
-                    teamList.appendChild(teamCard);
-                });
+        db.collection("teams").add(team)
+            .then(() => {
+                alert("Team created successfully!");
+                loadTeams();
+            })
+            .catch((error) => {
+                alert("Error creating team: " + error.message);
             });
+    });
+
+    // Load all teams and display in list with edit and delete functionality
+    function loadTeams() {
+        db.collection("teams").get().then((snapshot) => {
+            const teamList = document.getElementById("teams-list");
+            teamList.innerHTML = ""; // Clear existing teams
+
+            snapshot.forEach(doc => {
+                const team = doc.data();
+
+                // Create a card for each team
+                const teamCard = document.createElement("div");
+                teamCard.classList.add("team-card");
+
+                teamCard.innerHTML = `
+                    <div class="card-header">
+                        <img src="${team.logo}" class="team-logo" alt="${team.name} Logo"> <!-- Display the team logo -->
+                        <h3>${team.name}</h3>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Coach:</strong> ${team.coach}</p>
+                        <p><strong>Players:</strong></p>
+                        <ul class="player-list">
+                            ${team.players.map(player => `<li>${player}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="card-footer">
+                        <button class="team-button" onclick="editTeam('${doc.id}')">Edit</button>
+                        <button class="team-button" onclick="deleteTeam('${doc.id}')">Delete</button>
+                    </div>
+                `;
+
+                teamList.appendChild(teamCard);
+            });
+        });
+    }
+
+    // Edit team
+    function editTeam(teamId) {
+        db.collection("teams").doc(teamId).get().then(doc => {
+            const team = doc.data();
+            document.getElementById("team-name").value = team.name;
+            document.getElementById("coach-name").value = team.coach;
+            document.getElementById("player-names").value = team.players.join(", ");
+            document.getElementById("team-logo").value = team.logo; // Set the logo URL in the form for editing
+        });
+    }
+
+    // Delete team
+    function deleteTeam(teamId) {
+        db.collection("teams").doc(teamId).delete()
+            .then(() => {
+                alert("Team deleted successfully!");
+                loadTeams();
+            })
+            .catch((error) => {
+                alert("Error deleting team: " + error.message);
+            });
+    }
+// Load teams for fixture dropdowns
+function loadTeamDropdowns() {
+    const firstTeamDropdown = document.getElementById("first-team-dropdown");
+    const secondTeamDropdown = document.getElementById("second-team-dropdown");
+
+    db.collection("teams").get().then((snapshot) => {
+        firstTeamDropdown.innerHTML = "";
+        secondTeamDropdown.innerHTML = "";
+
+        snapshot.forEach(doc => {
+            const team = doc.data();
+            const option1 = document.createElement("option");
+            const option2 = document.createElement("option");
+
+            option1.value = doc.id;
+            option1.textContent = team.name;
+            firstTeamDropdown.appendChild(option1);
+
+            option2.value = doc.id;
+            option2.textContent = team.name;
+            secondTeamDropdown.appendChild(option2);
+        });
+    });
+}
+
+// Create fixture
+document.getElementById("fixture-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const eventName = document.getElementById("event-name").value;
+    const firstTeamId = document.getElementById("first-team-dropdown").value;
+    const secondTeamId = document.getElementById("second-team-dropdown").value;
+    const matchDate = document.getElementById("match-date").value;
+
+    // Save fixture to Firestore
+    db.collection("fixtures").add({
+        event: eventName,
+        firstTeamId: firstTeamId,
+        secondTeamId: secondTeamId,
+        date: matchDate,
+        stats: { 
+            homeScore: 0, awayScore: 0, 
+            ballPossession: "0-0", yellowCards: "0-0", redCards: "0-0", status: "not-started" 
         }
+    })
+    .then(() => {
+        alert("Fixture created successfully!");
+        loadFixtures();
+    })
+    .catch((error) => {
+        alert("Error creating fixture: " + error.message);
+    });
+});
 
-        // Load fixtures
-        function loadFixtures() {
-            db.collection("fixtures").get().then((snapshot) => {
-                const fixtureList = document.getElementById("fixtures-list");
-                fixtureList.innerHTML = "";
+// Load fixtures and display them with team logos and match stats
+function loadFixtures() {
+    db.collection("fixtures").get().then((snapshot) => {
+        const fixtureList = document.getElementById("fixtures-list");
+        fixtureList.innerHTML = "";  // Clear previous fixtures
 
-                snapshot.forEach(doc => {
-                    const fixture = doc.data();
-                    const firstTeamId = fixture.firstTeamId;
-                    const secondTeamId = fixture.secondTeamId;
+        snapshot.forEach(doc => {
+            const fixture = doc.data();
+            const firstTeamId = fixture.firstTeamId;
+            const secondTeamId = fixture.secondTeamId;
 
-                    const firstTeamNamePromise = db.collection("teams").doc(firstTeamId).get();
-                    const secondTeamNamePromise = db.collection("teams").doc(secondTeamId).get();
+            // Fetch team names and logos based on team IDs
+            const firstTeamNamePromise = db.collection("teams").doc(firstTeamId).get();
+            const secondTeamNamePromise = db.collection("teams").doc(secondTeamId).get();
 
-                    Promise.all([firstTeamNamePromise, secondTeamNamePromise]).then(([firstTeamDoc, secondTeamDoc]) => {
-                        const firstTeamName = firstTeamDoc.data().name;
-                        const secondTeamName = secondTeamDoc.data().name;
-                        const firstTeamLogo = firstTeamDoc.data().logo;
-                        const secondTeamLogo = secondTeamDoc.data().logo;
+            // Wait for both promises to resolve
+            Promise.all([firstTeamNamePromise, secondTeamNamePromise]).then(([firstTeamDoc, secondTeamDoc]) => {
+                const firstTeamName = firstTeamDoc.data().name;
+                const secondTeamName = secondTeamDoc.data().name;
+                const firstTeamLogo = firstTeamDoc.data().logo; // Ensure we are using the correct logo field
+                const secondTeamLogo = secondTeamDoc.data().logo;
 
-                        const stats = fixture.stats;
-                        const matchDate = new Date(fixture.date);
-                        const matchDateFormatted = matchDate.toLocaleDateString();
+                const stats = fixture.stats; // Access match statistics
+                const matchDate = new Date(fixture.date); // Convert the date to a Date object for better formatting
+                const matchTime = matchDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); // Format time
+                const matchDateFormatted = matchDate.toLocaleDateString(); // Format date
 
-                        const fixtureDiv = document.createElement("div");
-                        fixtureDiv.classList.add("fixture-item");
-                        fixtureDiv.innerHTML = `
-                            <div class="fixture-header">
-                                <h4 class="event-name">${fixture.event}</h4>
+                // Render the fixture with team names, logos, date, time, and stats
+                const fixtureDiv = document.createElement("div");
+                fixtureDiv.classList.add("fixture-item");
+                fixtureDiv.innerHTML = `
+                    <div class="fixture-header">
+                        <h4 class="event-name">${fixture.event}</h4>
+                    </div>
+                    <div class="fixture-body">
+                        <div class="teams">
+                            <div class="team">
+                                <img src="${firstTeamLogo}" alt="${firstTeamName} logo" class="team-logo">
+                                <p>${firstTeamName}</p>
+                                <p class="score home-score">${stats.homeScore}</p>
                             </div>
-                            <div class="teams">
-                                <div class="team">
-                                    <img src="${firstTeamLogo}" alt="${firstTeamName} logo" class="team-logo">
-                                    <p>${firstTeamName}</p>
-                                    <p class="score home-score">${stats.homeScore}</p>
-                                </div>
-                                <div class="vs">VS</div>
-                                <div class="team">
-                                    <img src="${secondTeamLogo}" alt="${secondTeamName} logo" class="team-logo">
-                                    <p>${secondTeamName}</p>
-                                    <p class="score away-score">${stats.awayScore}</p>
-                                </div>
+                            <div class="vs">VS</div>
+                            <div class="team">
+                                <img src="${secondTeamLogo}" alt="${secondTeamName} logo" class="team-logo">
+                                <p>${secondTeamName}</p>
+                                <p class="score away-score">${stats.awayScore}</p>
                             </div>
+                        </div>
+
+                        <!-- Separate Date and Time -->
+                        <div class="match-datetime">
                             <p class="match-date"><strong>Date:</strong> ${matchDateFormatted}</p>
-                        `;
+                            <p class="match-time"><strong>Time:</strong> ${matchTime}</p>
+                        </div>
 
-                        fixtureList.appendChild(fixtureDiv);
-                    });
-                });
+                        <div class="match-stats">
+                            <p><strong>Ball Possession:</strong> ${stats.ballPossession}</p>
+                            <p><strong>Yellow Cards:</strong> ${stats.yellowCards}</p>
+                            <p><strong>Red Cards:</strong> ${stats.redCards}</p>
+                            <p><strong>Status:</strong> ${stats.status}</p>
+                        </div>
+
+                        <div class="match-actions">
+                            <button class="fixture-button edit-stats-btn" onclick="editStats('${doc.id}')">Edit Stats</button>
+                            <button class="fixture-button delete-btn" onclick="deleteFixture('${doc.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+                fixtureList.appendChild(fixtureDiv);
+            }).catch(error => {
+                console.error("Error fetching team data:", error);
             });
-        }
+        });
+    });
+}
 
-        // Load data when the page loads
-        window.onload = function () {
-            loadTeams();
+// Function to edit match stats
+function editStats(fixtureId) {
+    const fixtureRef = db.collection("fixtures").doc(fixtureId);
+    fixtureRef.get().then(doc => {
+        const fixture = doc.data();
+
+        // Prompt the user to edit match statistics
+        const homeScore = prompt("Enter Home Team Score:", fixture.stats.homeScore);
+        const awayScore = prompt("Enter Away Team Score:", fixture.stats.awayScore);
+        const ballPossession = prompt("Enter Ball Possession (Home-Away):", fixture.stats.ballPossession);
+        const yellowCards = prompt("Enter Yellow Cards (Home-Away):", fixture.stats.yellowCards);
+        const redCards = prompt("Enter Red Cards (Home-Away):", fixture.stats.redCards);
+        const status = prompt("Enter Match Status (e.g., 'Completed', 'In Progress'):", fixture.stats.status);
+
+        // Update stats in Firestore
+        fixtureRef.update({
+            stats: {
+                homeScore: parseInt(homeScore, 10),
+                awayScore: parseInt(awayScore, 10),
+                ballPossession: ballPossession,
+                yellowCards: yellowCards,
+                redCards: redCards,
+                status: status
+            }
+        }).then(() => {
+            alert("Match statistics updated successfully!");
+            loadFixtures();  // Reload fixtures to show updated stats
+        }).catch((error) => {
+            alert("Error updating match stats: " + error.message);
+        });
+    });
+}
+
+// Delete a fixture
+function deleteFixture(fixtureId) {
+    db.collection("fixtures").doc(fixtureId).delete()
+        .then(() => {
+            alert("Fixture deleted successfully!");
             loadFixtures();
-        };
-    </script>
+        })
+        .catch((error) => {
+            alert("Error deleting fixture: " + error.message);
+        });
+}
+    // Initial Load of Teams and Fixtures
+    loadTeams();
+    loadTeamDropdowns();
+    loadFixtures();
+</script>
 
 </body>
 </html>
