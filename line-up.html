@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Football Competition Admin Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        section {
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            width: 80%;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .team-logo {
+            width: 50px;
+            height: 50px;
+        }
+
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .team-header h3 {
+            margin: 0;
+        }
+
+        #teams-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px;
+            justify-content: center;
+        }
+
+        .team-card {
+            width: 100%;
+            max-width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .team-card:hover {
+            transform: scale(1.05);
+        }
+
+        .card-header {
+            background-color: #f0f0f0;
+            padding: 15px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .team-logo {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .card-body {
+            padding: 10px;
+            color: #333;
+        }
+
+        .player-list {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 10px 0;
+        }
+
+        .player-list li {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .team-card {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <section id="teams-section">
+        <h2>Teams Line Up</h2>
+        <div id="teams-list"></div>
+    </section>
+
+    <section id="fixtures-section" style="background-color: #f1f8e9;">
+        <h2>Results and Statistics</h2>
+        <div id="fixtures-list"></div>
+    </section>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDr1XsWltrYOMXT7_MqylD8bOTGjikmYzE",
+            authDomain: "riders-5ad93.firebaseapp.com",
+            projectId: "riders-5ad93",
+            storageBucket: "riders-5ad93.appspot.com",
+            messagingSenderId: "956987352089",
+            appId: "1:956987352089:web:bee471f0cb74626bbb7688"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Load teams
+        function loadTeams() {
+            db.collection("teams").get().then((snapshot) => {
+                const teamList = document.getElementById("teams-list");
+                teamList.innerHTML = ""; 
+
+                snapshot.forEach(doc => {
+                    const team = doc.data();
+                    const teamCard = document.createElement("div");
+                    teamCard.classList.add("team-card");
+
+                    teamCard.innerHTML = `
+                        <div class="card-header">
+                            <img src="${team.logo}" class="team-logo" alt="${team.name} Logo">
+                            <h3>${team.name}</h3>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Coach:</strong> ${team.coach}</p>
+                            <p><strong>Players:</strong></p>
+                            <ul class="player-list">
+                                ${team.players.map(player => `<li>${player}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+
+                    teamList.appendChild(teamCard);
+                });
+            });
+        }
+
+        // Load fixtures
+        function loadFixtures() {
+            db.collection("fixtures").get().then((snapshot) => {
+                const fixtureList = document.getElementById("fixtures-list");
+                fixtureList.innerHTML = "";
+
+                snapshot.forEach(doc => {
+                    const fixture = doc.data();
+                    const firstTeamId = fixture.firstTeamId;
+                    const secondTeamId = fixture.secondTeamId;
+
+                    const firstTeamNamePromise = db.collection("teams").doc(firstTeamId).get();
+                    const secondTeamNamePromise = db.collection("teams").doc(secondTeamId).get();
+
+                    Promise.all([firstTeamNamePromise, secondTeamNamePromise]).then(([firstTeamDoc, secondTeamDoc]) => {
+                        const firstTeamName = firstTeamDoc.data().name;
+                        const secondTeamName = secondTeamDoc.data().name;
+                        const firstTeamLogo = firstTeamDoc.data().logo;
+                        const secondTeamLogo = secondTeamDoc.data().logo;
+
+                        const stats = fixture.stats;
+                        const matchDate = new Date(fixture.date);
+                        const matchDateFormatted = matchDate.toLocaleDateString();
+
+                        const fixtureDiv = document.createElement("div");
+                        fixtureDiv.classList.add("fixture-item");
+                        fixtureDiv.innerHTML = `
+                            <div class="fixture-header">
+                                <h4 class="event-name">${fixture.event}</h4>
+                            </div>
+                            <div class="teams">
+                                <div class="team">
+                                    <img src="${firstTeamLogo}" alt="${firstTeamName} logo" class="team-logo">
+                                    <p>${firstTeamName}</p>
+                                    <p class="score home-score">${stats.homeScore}</p>
+                                </div>
+                                <div class="vs">VS</div>
+                                <div class="team">
+                                    <img src="${secondTeamLogo}" alt="${secondTeamName} logo" class="team-logo">
+                                    <p>${secondTeamName}</p>
+                                    <p class="score away-score">${stats.awayScore}</p>
+                                </div>
+                            </div>
+                            <p class="match-date"><strong>Date:</strong> ${matchDateFormatted}</p>
+                        `;
+
+                        fixtureList.appendChild(fixtureDiv);
+                    });
+                });
+            });
+        }
+
+        // Load data when the page loads
+        window.onload = function () {
+            loadTeams();
+            loadFixtures();
+        };
+    </script>
+
+</body>
+</html>
